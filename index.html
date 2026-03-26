@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Adopt Me Trade Simulator</title>
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  display: flex;
+  height: 100vh;
+  background: #e0ebff;
+}
+/* Sidebar */
+#sidebar {
+  width: 240px;
+  background: #ffc0cb; /* Pink */
+  padding: 10px;
+  overflow-y: auto;
+}
+#sidebar h2 {
+  text-align: center;
+}
+.rarity {
+  background: #ff99b3;
+  padding: 6px;
+  margin: 6px 0;
+  cursor: pointer;
+  border-radius: 4px;
+  text-align: center;
+  font-weight: bold;
+}
+.rarity:hover {
+  background: #ff80a1;
+}
+.pet-list {
+  display: none;
+  margin: 4px 0;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-left: 6px;
+  border-left: 2px solid #000;
+}
+.pet {
+  padding: 4px;
+  cursor: pointer;
+}
+.pet:hover {
+  background: #ffd6dc;
+}
+
+/* Main trade area */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+#tradeContainer {
+  display: flex;
+  justify-content: space-between;
+  flex: 1;
+}
+.trade-box {
+  width: 48%;
+  background: #fafafa;
+  border: 4px solid #000;
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+.trade-header {
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+}
+.total-value {
+  text-align: center;
+  margin: 6px 0;
+  font-size: 18px;
+}
+.trade-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  flex: 1;
+  overflow-y: auto;
+}
+.trade-card {
+  border: 2px solid #888;
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 14px;
+  position: relative;
+}
+.trade-card.Common { border-color: gray; }
+.trade-card.Uncommon { border-color: green; }
+.trade-card.Rare { border-color: blue; }
+.trade-card["Ultra-Rare"] { border-color: purple; }
+.trade-card.Legendary { border-color: gold; }
+.add-btn {
+  margin-top: 6px;
+  background: #00ff00; /* Green */
+  border: none;
+  padding: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 4px;
+}
+#outcome {
+  text-align: center;
+  font-size: 20px;
+  margin-top: 10px;
+  font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h2>Pet Catalog</h2>
+  <div class="rarity" onclick="toggleList('Common')">Common</div>
+  <div class="pet-list" id="Common"></div>
+
+  <div class="rarity" onclick="toggleList('Uncommon')">Uncommon</div>
+  <div class="pet-list" id="Uncommon"></div>
+
+  <div class="rarity" onclick="toggleList('Rare')">Rare</div>
+  <div class="pet-list" id="Rare"></div>
+
+  <div class="rarity" onclick="toggleList('Ultra-Rare')">Ultra-Rare</div>
+  <div class="pet-list" id="Ultra-Rare"></div>
+
+  <div class="rarity" onclick="toggleList('Legendary')">Legendary</div>
+  <div class="pet-list" id="Legendary"></div>
+</div>
+
+<div id="main">
+  <div id="tradeContainer">
+    <div class="trade-box" id="youBox">
+      <div class="trade-header">YOU</div>
+      <div class="total-value">Total RP: <span id="youTotal">0</span></div>
+      <div class="trade-grid" id="youGrid"></div>
+    </div>
+    <div class="trade-box" id="themBox">
+      <div class="trade-header">THEM</div>
+      <div class="total-value">Total RP: <span id="themTotal">0</span></div>
+      <div class="trade-grid" id="themGrid"></div>
+    </div>
+  </div>
+  <div id="outcome">Trade Status: -</div>
+</div>
+
+<script>
+// Example pet data — replace with all pets and real RP values
+const allPets = [
+  { name:"Dog", rarity:"Common", value:2 },
+  { name:"Cat", rarity:"Common", value:2.5 },
+  { name:"Parrot", rarity:"Rare", value:85 },
+  { name:"Owl", rarity:"Rare", value:95 },
+  { name:"Bat Dragon", rarity:"Legendary", value:200 },
+  { name:"Shadow Dragon", rarity:"Legendary", value:280 }
+];
+
+// Populate sidebar
+const rarities = ["Common","Uncommon","Rare","Ultra-Rare","Legendary"];
+rarities.forEach(r => {
+  const listElem = document.getElementById(r);
+  allPets.filter(p=>p.rarity===r)
+         .sort((a,b)=>a.value-b.value)
+         .forEach(p=>{
+           const div = document.createElement("div");
+           div.textContent = `${p.name} (${p.value})`;
+           div.className="pet";
+           const addBtn = document.createElement("button");
+           addBtn.textContent="+";
+           addBtn.className="add-btn";
+           addBtn.onclick=(e)=>{ e.stopPropagation(); openAddDialog(p); };
+           div.appendChild(addBtn);
+           listElem.appendChild(div);
+         });
+});
+
+function toggleList(rarity){
+  const el = document.getElementById(rarity);
+  el.style.display = (el.style.display==="block")?"none":"block";
+}
+
+// Trade logic
+let youTotal=0, themTotal=0;
+const youGrid = document.getElementById("youGrid");
+const themGrid = document.getElementById("themGrid");
+
+function openAddDialog(pet){
+  const box = prompt("Add to YOU or THEM?\nType YOU or THEM");
+  if(!box) return;
+  addPetToTrade(pet, box.toLowerCase()==="you"?"you":"them");
+}
+
+function addPetToTrade(pet, box){
+  let finalValue = pet.value;
+  const neon = confirm("Neon? OK = Yes, Cancel = No");
+  const mega = neon ? confirm("Mega Neon? OK = Yes, Cancel = No") : false;
+  const fly = confirm("Fly? OK = Yes, Cancel = No");
+  const ride = confirm("Ride? OK = Yes, Cancel = No");
+  if(mega) finalValue *=1.5;
+  else if(neon) finalValue*=1.2;
+
+  const card = document.createElement("div");
+  card.className="trade-card "+pet.rarity;
+  card.textContent = `${pet.name} ${fly?"🕊️":""}${ride?"🏇":""}${neon?"✨":""}${mega?"🌟":""} (${finalValue.toFixed(2)})`;
+
+  if(box==="you"){
+    youGrid.appendChild(card);
+    youTotal+=finalValue;
+    document.getElementById("youTotal").textContent = youTotal.toFixed(2);
+  } else {
+    themGrid.appendChild(card);
+    themTotal+=finalValue;
+    document.getElementById("themTotal").textContent = themTotal.toFixed(2);
+  }
+
+  updateOutcome();
+}
+
+function updateOutcome(){
+  const outcome = document.getElementById("outcome");
+  if(youTotal>themTotal){ outcome.textContent="Trade Status: Lose ❌"; outcome.style.color="red"; }
+  else if(youTotal===themTotal){ outcome.textContent="Trade Status: Fair ✅"; outcome.style.color="green"; }
+  else { outcome.textContent="Trade Status: Win 🎉"; outcome.style.color="blue"; }
+}
+</script>
+</body>
+</html>
